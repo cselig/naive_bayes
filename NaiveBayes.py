@@ -6,11 +6,15 @@ from pprint import pprint
 
 
 # Naive Bayes classifier
+# Works with boolean and continuous numerical features. 
+# Note: boolean features should be represented as 0 or 1
 class NB():
 
     # params:
     #   classes: list of classes 
-    #   n: number of features
+    #   smoothing: whether or not the algorithm uses Laplace Smoothing
+    #   reporting: report times for training and classification
+    #   buckets: number of buckets to split continuous features into
     def __init__(self, classes, smoothing=True, reporting=True, buckets=5):
         self.classes = classes
         self.smoothing = smoothing
@@ -18,13 +22,10 @@ class NB():
         self.buckets = buckets
 
 
-
-
-
     # discretize so that all features are either 0 or 1. Turn continuous features into multiple 
     # features for each bucket
     # params: 
-    #   data: np.array of feature vectors
+    #   data: list or array of feature vectors
     def preprocess(self, data):
         # ranges is a 1D array. holds 'd' if feature is discrete, and upper bound for that bucket if 
         # feature is continuous
@@ -33,6 +34,7 @@ class NB():
         return result
 
 
+    # take non-discrete feature vectors and return discretized feature vectors
     def discretize_features(self, data, ranges):
         result = []
         for feat_vect in data:
@@ -58,9 +60,9 @@ class NB():
         return result
 
 
+    # create the ranges of the buckets used to discretize the data later
     def create_ranges(self, data):
         ranges = []
-
         for i in range(0, len(data[0])):
             discrete = True
             values = [vec[i] for vec in data]
@@ -87,28 +89,22 @@ class NB():
 
         # discretize all features
         preprocessed = self.preprocess([t[1] for t in data])
-        # return
+
         class_arr = np.array([t[0] for t in data])
         data_arr = np.array(preprocessed)
         data_arr = data_arr.astype(np.int)
-        # pprint(class_arr)
-        # pprint(data_arr)
 
         m = class_arr.shape[0] # number of observations
         n = data_arr.shape[1] # number of attributes in each feature vector
-        # print('m: ' + str(m))
-        # print('n: ' + str(n))
+
         # calculate marginal probabilities of each class
         class_totals = {}
         self.class_marg_prob = {}
 
         for c in self.classes:
-            # print(c)
             count = (class_arr == c).sum()
-            # print('\tcount: ' + str(count))
             class_totals[c] = count
             self.class_marg_prob[c] =  float(count) / m
-        # print(self.class_marg_prob)
         # keys are tuples (attribute #, class), values are counts
         conditional_prob_counts = {}  
 
@@ -143,11 +139,12 @@ class NB():
                         self.cond_probabilities[(f, c)] = 1.0 / (class_totals[c] + 2)
                     else:
                         self.cond_probabilities[(f, c)] = 0
-        # pprint(self.cond_probabilities)
 
 
     # params:
     #   data_list: list of feature vectors (lists)
+    # returns
+    #   list of predicted classes
     def classify(self, data_list):
         if self.reporting:
             print('Classifying in progress...')
@@ -164,6 +161,7 @@ class NB():
         return result
 
 
+    # helper for classify(), classifies single data point
     def classify_single(self, feature_vector):
         classification_dict = {}
 
@@ -175,5 +173,5 @@ class NB():
                 else: # a == 0
                     bayes_prob *= 1 - self.cond_probabilities[(i, c)]
             classification_dict[c] = bayes_prob
-        # pprint(classification_dict)
+
         return max(classification_dict, key=lambda key: classification_dict[key])
